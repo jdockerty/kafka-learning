@@ -14,13 +14,23 @@ import (
 var (
 	brokerAddress *string = flag.String("brokers", "localhost:9092", "address of the kafka broker")
 	topic         *string = flag.String("topic", "", "the kafka topic name to send messages to")
+	apiKey        *string = flag.String("api-key", "", "Confluent Cloud API Key")
+	secretKey     *string = flag.String("secret-key", "", "Confluent Cloud Secret Key")
 )
 
 func main() {
+	flag.Parse()
+
 	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
 		"bootstrap.servers": *brokerAddress,
 		"group.id":          "foo",
 		"auto.offset.reset": "earliest",
+		"security.protocol": "SASL_SSL",
+		"sasl.mechanisms":   "PLAIN",
+		"sasl.username":     *apiKey,
+		"sasl.password":     *secretKey,
+		"client.id":         "1",
+		"acks":              "all",
 	})
 	if err != nil {
 		fmt.Errorf("Unable to create consumer: %s\n", err)

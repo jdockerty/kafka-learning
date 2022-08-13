@@ -10,14 +10,32 @@ import (
 )
 
 var (
-	brokerAddress *string = flag.String("brokers", "localhost:9092", "address of the kafka broker")
-	topic         *string = flag.String("topic", "", "the kafka topic name to send messages to")
+	brokerAddress *string = flag.String("brokers", "", "Address of the kafka broker")
+	apiKey        *string = flag.String("api-key", "", "Confluent Cloud API Key")
+	secretKey     *string = flag.String("secret-key", "", "Confluent Cloud Secret Key")
+	topic         *string = flag.String("topic", "", "Kafka topic name to send messages to")
 )
 
 func main() {
 
+	flag.Parse()
+
+	if *brokerAddress == "" {
+		fmt.Println("Broker address must be set!")
+		os.Exit(2)
+	}
+
+	if *apiKey == "" || *secretKey == "" {
+		fmt.Println("Must provide Confluent Cloud keys!")
+		os.Exit(2)
+	}
+
 	p, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers": *brokerAddress,
+		"security.protocol": "SASL_SSL",
+		"sasl.mechanisms":   "PLAIN",
+		"sasl.username":     *apiKey,
+		"sasl.password":     *secretKey,
 		"client.id":         "1",
 		"acks":              "all",
 	})
@@ -49,6 +67,7 @@ func main() {
 		key := users[rand.Intn(len(users))]
 		data := items[rand.Intn(len(items))]
 		p.Produce(&kafka.Message{
+
 			TopicPartition: kafka.TopicPartition{Topic: topic, Partition: kafka.PartitionAny},
 			Key:            []byte(key),
 			Value:          []byte(data),
