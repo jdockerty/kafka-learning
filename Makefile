@@ -1,7 +1,7 @@
 .PHONY: init init-kafka init-k3d get-kafka-info
 SHELL := /bin/bash
 
-PORT := $(shell kubectl get svc -n kafka kafka-kafka-external-bootstrap -o jsonpath='{.spec.ports[0].nodePort}{"\n"}')
+PORT := $(shell kubectl get svc -n kafka my-cluster-kafka-external-bootstrap -o jsonpath='{.spec.ports[0].nodePort}{"\n"}')
 ADDRS := $(shell kubectl get nodes --output=jsonpath='{range .items[*]}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}' | awk '{print $$1}')
 SINGLE_ADDR :=  $(shell echo "$(ADDRS)" | awk '{print $$1}')
 
