@@ -1,4 +1,10 @@
 # Kafka Learning
 
+The `manifests` folder can be used to deploy the [`strimzi`](https://strimzi.io/) Kafka operator into [`k3d`](https://k3d.io/), by running `make init`.
 
-_Manifests are currently unused as opting for use of Confluent Cloud with free credits for learning of Kafka usage. Will transition to Strimzi once I understand more about it internally._
+
+Once the operator is deployed, you can produce some fake data into the pre-created `test-topic` by running
+
+    # Run these in separate terminals as they are blocking calls
+    make run-producer-local
+    make run-consumer-local
