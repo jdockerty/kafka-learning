@@ -12,6 +12,7 @@ import (
 var (
 	brokerAddress *string = flag.String("brokers", "", "Address of the kafka broker")
 	apiKey        *string = flag.String("api-key", "", "Confluent Cloud API Key")
+	strimzi       *bool   = flag.Bool("strimzi", true, "Using Strimzi locally, no keys required")
 	secretKey     *string = flag.String("secret-key", "", "Confluent Cloud Secret Key")
 	topic         *string = flag.String("topic", "", "Kafka topic name to send messages to")
 )
@@ -25,29 +26,44 @@ func main() {
 		os.Exit(2)
 	}
 
-	if *apiKey == "" || *secretKey == "" {
-		fmt.Println("Must provide Confluent Cloud keys!")
-		os.Exit(2)
-	}
+	var producer *kafka.Producer
+	if !*strimzi {
+		if *apiKey == "" || *secretKey == "" {
+			fmt.Println("Must provide Confluent Cloud keys!")
+			os.Exit(2)
+		}
+		p, err := kafka.NewProducer(&kafka.ConfigMap{
+			"bootstrap.servers": *brokerAddress,
+			"security.protocol": "SASL_SSL",
+			"sasl.mechanisms":   "PLAIN",
+			"sasl.username":     *apiKey,
+			"sasl.password":     *secretKey,
+			"client.id":         "1",
+			"acks":              "all",
+		})
+		if err != nil {
+			fmt.Printf("Failed to create producer: %s\n", err)
+			os.Exit(1)
+		}
 
-	p, err := kafka.NewProducer(&kafka.ConfigMap{
-		"bootstrap.servers": *brokerAddress,
-		"security.protocol": "SASL_SSL",
-		"sasl.mechanisms":   "PLAIN",
-		"sasl.username":     *apiKey,
-		"sasl.password":     *secretKey,
-		"client.id":         "1",
-		"acks":              "all",
-	})
-	if err != nil {
-		fmt.Printf("Failed to create producer: %s\n", err)
-		os.Exit(1)
-	}
+		producer = p
+	} else {
+		p, err := kafka.NewProducer(&kafka.ConfigMap{
+			"bootstrap.servers": *brokerAddress,
+			"client.id":         "1",
+			"acks":              "all",
+		})
+		if err != nil {
+			fmt.Printf("Failed to create producer: %s\n", err)
+			os.Exit(1)
+		}
 
+		producer = p
+	}
 	// Go-routine to handle message delivery reports and
 	// possibly other event types (errors, stats, etc)
 	go func() {
-		for e := range p.Events() {
+		for e := range producer.Events() {
 			switch ev := e.(type) {
 			case *kafka.Message:
 				if ev.TopicPartition.Error != nil {
@@ -66,7 +82,7 @@ func main() {
 	for n := 0; n < 10; n++ {
 		key := users[rand.Intn(len(users))]
 		data := items[rand.Intn(len(items))]
-		p.Produce(&kafka.Message{
+		producer.Produce(&kafka.Message{
 
 			TopicPartition: kafka.TopicPartition{Topic: topic, Partition: kafka.PartitionAny},
 			Key:            []byte(key),
@@ -75,6 +91,6 @@ func main() {
 	}
 
 	// Wait for all messages to be delivered
-	p.Flush(15 * 1000)
-	p.Close()
+	producer.Flush(15 * 1000)
+	producer.Close()
 }

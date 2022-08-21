@@ -14,31 +14,50 @@ import (
 var (
 	brokerAddress *string = flag.String("brokers", "localhost:9092", "address of the kafka broker")
 	topic         *string = flag.String("topic", "", "the kafka topic name to send messages to")
+	strimzi       *bool   = flag.Bool("strimzi", true, "Using Strimzi locally, no keys required")
 	apiKey        *string = flag.String("api-key", "", "Confluent Cloud API Key")
 	secretKey     *string = flag.String("secret-key", "", "Confluent Cloud Secret Key")
 )
 
 func main() {
 	flag.Parse()
+	var consumer *kafka.Consumer
+	if !*strimzi {
+		c, err := kafka.NewConsumer(&kafka.ConfigMap{
+			"bootstrap.servers": *brokerAddress,
+			"group.id":          "foo",
+			"auto.offset.reset": "earliest",
+			"security.protocol": "SASL_SSL",
+			"sasl.mechanisms":   "PLAIN",
+			"sasl.username":     *apiKey,
+			"sasl.password":     *secretKey,
+			"client.id":         "1",
+		})
+		if err != nil {
+			fmt.Printf("Unable to create consumer: %s\n", err)
+			return
+		}
+		consumer = c
+	} else {
 
-	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": *brokerAddress,
-		"group.id":          "foo",
-		"auto.offset.reset": "earliest",
-		"security.protocol": "SASL_SSL",
-		"sasl.mechanisms":   "PLAIN",
-		"sasl.username":     *apiKey,
-		"sasl.password":     *secretKey,
-		"client.id":         "1",
-		"acks":              "all",
-	})
-	if err != nil {
-		fmt.Errorf("Unable to create consumer: %s\n", err)
-		return
+		c, err := kafka.NewConsumer(&kafka.ConfigMap{
+			"bootstrap.servers": *brokerAddress,
+			"group.id":          "foo",
+			"auto.offset.reset": "earliest",
+			"client.id":         "1",
+		})
+		if err != nil {
+			fmt.Printf("Unable to create consumer: %s\n", err)
+			return
+		}
+		consumer = c
 	}
 
-	err = consumer.SubscribeTopics([]string{*topic}, nil)
-
+	err := consumer.SubscribeTopics([]string{*topic}, nil)
+	if err != nil {
+		fmt.Printf("Unable to create subscribe to topic '%s'. %s\n", *topic, err)
+		return
+	}
 	// Set up a channel for handling Ctrl-C, etc
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
