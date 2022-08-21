@@ -1,4 +1,9 @@
-.PHONY: init init-kafka init-k3d get-kafka-port
+.PHONY: init init-kafka init-k3d get-kafka-info
+SHELL := /bin/bash
+
+PORT := $(shell kubectl get svc -n kafka kafka-kafka-external-bootstrap -o jsonpath='{.spec.ports[0].nodePort}{"\n"}')
+ADDRS := $(shell kubectl get nodes --output=jsonpath='{range .items[*]}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}' | awk '{print $$1}')
+SINGLE_ADDR :=  $(shell echo "$(ADDRS)" | awk '{print $$1}')
 
 init-kafka:
 	kubectl create -f manifests/namespace.yml
@@ -17,9 +22,17 @@ init-k3d:
 
 get-kafka-info:
 	@echo "NOTE: This command should only be used when all resources are available."
-	@echo Port: $(shell kubectl get svc -n kafka kafka-kafka-external-bootstrap -o jsonpath='{.spec.ports[0].nodePort}{"\n"}')
-	@echo IPs: $(shell kubectl get nodes --output=jsonpath='{range .items[*]}{.status.addresses[?(@.type=="InternalIP")].address}{"\n"}{end}')
+	@echo Port: $(PORT)
+	@echo IPs: $(ADDRS)
 	@echo "Use any of the IPs and port and pass it as a broker to the consumer/producer."
+
+run-producer-local:
+	@echo "Running producer!"
+	go run cmd/producer/producer.go --topic test-topic --brokers "$(SINGLE_ADDR):$(PORT)"
+
+run-consumer-local:
+	@echo "Running consumer! Reading from latest offset..."
+	go run cmd/consumer/consumer.go --topic test-topic --brokers "$(SINGLE_ADDR):$(PORT)"
 
 init: init-k3d init-kafka
 
