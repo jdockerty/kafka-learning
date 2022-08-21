@@ -32,7 +32,6 @@ func main() {
 			"sasl.username":     *apiKey,
 			"sasl.password":     *secretKey,
 			"client.id":         "1",
-			"acks":              "all",
 		})
 		if err != nil {
 			fmt.Printf("Unable to create consumer: %s\n", err)
@@ -45,10 +44,7 @@ func main() {
 			"bootstrap.servers": *brokerAddress,
 			"group.id":          "foo",
 			"auto.offset.reset": "earliest",
-			"security.protocol": "SASL_SSL",
-			"sasl.mechanisms":   "PLAIN",
 			"client.id":         "1",
-			"acks":              "all",
 		})
 		if err != nil {
 			fmt.Printf("Unable to create consumer: %s\n", err)
